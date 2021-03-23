@@ -17,11 +17,13 @@
 package io.pivotal.literx;
 
 import java.time.Duration;
+import java.util.function.Supplier;
 
 import io.pivotal.literx.domain.User;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 /**
  * Learn how to use StepVerifier to test Mono, Flux or any other kind of Reactive Streams Publisher.
@@ -35,37 +37,72 @@ public class Part03StepVerifierTest {
 
 //========================================================================================
 
+	/**
+	 * Use StepVerifier to check that the flux parameter emits "foo" and "bar" elements then completes successfully.
+	 */
 	@Test
 	public void expectElementsThenComplete() {
-		workshop.expectFooBarComplete(Flux.just("foo", "bar"));
+		final Flux<String> stringFlux = workshop.expectFooBarComplete();
+		StepVerifier.create(stringFlux)
+				.expectNext("foo")
+				.expectNext("bar")
+				.verifyComplete();
 	}
 
 //========================================================================================
 
+	/**
+	 * Use StepVerifier to check that the flux parameter emits "foo" and "bar" elements then a RuntimeException error.
+	 */
 	@Test
 	public void expect2ElementsThenError() {
-		workshop.expectFooBarError(Flux.just("foo", "bar").concatWith(Mono.error(new RuntimeException())));
+		final Flux<String> stringFlux = workshop.expectFooBarError();
+		StepVerifier.create(stringFlux)
+				.expectNext("foo")
+				.expectNext("bar")
+				.verifyError(RuntimeException.class);
 	}
 
 //========================================================================================
 
+	/**
+	 * Use StepVerifier to check that the flux parameter emits a User with "swhite" username
+	 * and another one with "jpinkman" then completes successfully.
+	 */
 	@Test
 	public void expectElementsWithThenComplete() {
-		workshop.expectSkylerJesseComplete(Flux.just(new User("swhite", null, null), new User("jpinkman", null, null)));
+		final Flux<User> userFlux = workshop.expectSkylerJesseComplete();
+		StepVerifier.create(userFlux)
+				.expectNextMatches(o -> "swhite".equals(o.getUsername()))
+				.expectNextMatches(o -> "jpinkman".equals(o.getUsername()))
+				.verifyComplete();
 	}
 
 //========================================================================================
 
+	/**
+	 * Expect 10 elements then complete and notice how long the test takes.
+	 */
 	@Test
 	public void count() {
-		workshop.expect10Elements(Flux.interval(Duration.ofSeconds(1)).take(10));
+		final Flux<Long> longFlux = workshop.expect10Elements();
+		StepVerifier.create(longFlux)
+				.expectNextCount(10)
+				.verifyComplete();
 	}
 
 //========================================================================================
 
+	/**
+	 * Expect 3600 elements at intervals of 1 second, and verify quicker than 3600s
+	 * by manipulating virtual time thanks to StepVerifier#withVirtualTime, notice how long the test takes
+	 */
 	@Test
 	public void countWithVirtualTime() {
-		workshop.expect3600Elements(() -> Flux.interval(Duration.ofSeconds(1)).take(3600));
+		final Supplier<Flux<Long>> fluxSupplier = workshop.expect3600Elements();
+		StepVerifier.withVirtualTime(fluxSupplier)
+				.thenAwait(Duration.ofSeconds(3600))
+				.expectNextCount(3600)
+				.verifyComplete();
 	}
-
 }
